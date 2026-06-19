@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adega — PDV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg:       #0f0f11;
+    --surface:  #18181c;
+    --border:   #2a2a30;
+    --accent:   #c8973a;
+    --accent2:  #e8b55a;
+    --red:      #e05252;
+    --green:    #52c07a;
+    --text:     #e8e8ec;
+    --muted:    #7a7a88;
+    --pill-bg:  #24242c;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 20px; height: 52px;
+  }
+  nav .logo {
+    font-weight: 700; font-size: 16px; color: var(--accent);
+    letter-spacing: .03em; margin-right: auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+  nav .logo span { font-weight: 300; color: var(--muted); }
+  nav button {
+    padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 13px; font-family: inherit; transition: all .15s;
+  }
+  nav button.active, nav button:hover {
+    background: var(--pill-bg); color: var(--text); border-color: var(--accent);
+  }
+
+  /* ── Layout ── */
+  main { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
+  main.visible { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 12px;
+  }
+
+  /* ── Dashboard ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .kpi .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .kpi .value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600; color: var(--accent2); }
+  .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .kpi.green .value { color: var(--green); }
+  .kpi.red   .value { color: var(--red); }
+
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .dash-grid { grid-template-columns: 1fr; } }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+       letter-spacing: .06em; padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--pill-bg); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 99px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge.ok  { background: #1a3a28; color: var(--green); }
+  .badge.rev { background: #3a1a1a; color: var(--red); }
+
+  /* ── PDV ── */
+  .pdv-layout { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .pdv-layout { grid-template-columns: 1fr; } }
+
+  .form-grid { display: grid; gap: 12px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .06em; }
+  .field input, .field select {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; font-family: inherit;
+    transition: border-color .15s;
+    outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select option { background: var(--surface); }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-sell {
+    width: 100%; padding: 14px;
+    background: var(--accent); color: #0f0f11;
+    border: none; border-radius: 10px; cursor: pointer;
+    font-size: 15px; font-weight: 700; font-family: inherit;
+    transition: background .15s, transform .1s;
+    margin-top: 4px;
+  }
+  .btn-sell:hover { background: var(--accent2); }
+  .btn-sell:active { transform: scale(.98); }
+
+  .btn-icon {
+    background: none; border: none; cursor: pointer; padding: 4px 8px;
+    border-radius: 6px; font-size: 15px; transition: background .15s;
+  }
+  .btn-icon:hover { background: var(--pill-bg); }
+
+  /* Cart / pedido aberto */
+  .cart-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .cart-item:last-child { border-bottom: none; }
+  .cart-name { font-weight: 500; }
+  .cart-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .cart-price { font-family: 'JetBrains Mono', monospace; color: var(--accent2); font-weight: 600; white-space: nowrap; }
+
+  .total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 14px; margin-top: 8px; border-top: 1px solid var(--border);
+    font-weight: 700; font-size: 16px;
+  }
+  .total-val { font-family: 'JetBrains Mono', monospace; color: var(--accent2); font-size: 20px; }
+
+  .btn-close-order {
+    width: 100%; padding: 12px;
+    background: var(--green); color: #0f0f11;
+    border: none; border-radius: 10px; cursor: pointer;
+    font-size: 14px; font-weight: 700; font-family: inherit;
+    margin-top: 14px; transition: opacity .15s;
+  }
+  .btn-close-order:hover { opacity: .85; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--green); color: #0f0f11;
+    padding: 10px 20px; border-radius: 99px; font-weight: 600; font-size: 13px;
+    transition: transform .3s, opacity .3s; opacity: 0; z-index: 99;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  #toast.err  { background: var(--red); color: #fff; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-bar input {
+    padding: 7px 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: inherit; font-size: 13px; flex: 1; min-width: 160px;
+    outline: none;
+  }
+  .filter-bar input:focus { border-color: var(--accent); }
+  .btn-danger {
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--red);
+    background: transparent; color: var(--red); cursor: pointer; font-size: 12px; font-family: inherit;
+    transition: all .15s;
+  }
+  .btn-danger:hover { background: #3a1a1a; }
+
+  canvas { max-height: 220px !important; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">🍷 Adega <span>PDV</span></div>
+  <button id="navPDV" class="active" onclick="showView('pdv')">⚡ Caixa</button>
+  <button id="navDash" onclick="showView('dash')">📊 Painel</button>
+  <button id="navHist" onclick="showView('hist')">🗂 Histórico</button>
+</nav>
+
+<!-- ═══════════ PDV ═══════════ -->
+<main id="viewPDV" class="visible">
+  <p class="section-title">Frente de Caixa</p>
+  <div class="pdv-layout">
+    <!-- Formulário -->
+    <div class="card">
+      <div class="card-title">Adicionar item ao pedido</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Bebida / Produto</label>
+          <input id="fNome" type="text" placeholder="Ex: Heineken, Vinho Tinto, Whisky…" list="dl-bebidas" autocomplete="off">
+          <datalist id="dl-bebidas"></datalist>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Medida</label>
+            <select id="fMedida">
+              <option value="">Selecionar…</option>
+              <option>Dose</option>
+              <option>Shot</option>
+              <option>Copo 200ml</option>
+              <option>Copo 300ml</option>
+              <option>Copo 500ml</option>
+              <option>Long Neck</option>
+              <option>Lata 350ml</option>
+              <option>Garrafa 600ml</option>
+              <option>Garrafa 1L</option>
+              <option>Garrafa 1,5L</option>
+              <option>Garrafa (Vinho)</option>
+              <option>Taça</option>
+              <option>Combo</option>
+              <option>Outro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Qtd</label>
+            <input id="fQtd" type="number" min="1" value="1" placeholder="1">
+          </div>
+        </div>
+        <div class="field">
+          <label>Preço unitário (R$)</label>
+          <input id="fPreco" type="number" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <button class="btn-sell" onclick="addItem()">+ Adicionar ao Pedido</button>
+      </div>
+    </div>
+
+    <!-- Carrinho -->
+    <div class="card" style="position:sticky;top:68px">
+      <div class="card-title">Pedido aberto</div>
+      <div id="cartList"><p class="empty">Nenhum item adicionado.</p></div>
+      <div id="cartTotal" style="display:none">
+        <div class="total-row"><span>Total</span><span class="total-val" id="totalVal">R$ 0,00</span></div>
+        <button class="btn-close-order" onclick="closeOrder()">✅ Fechar Pedido</button>
+        <button class="btn-danger" style="width:100%;margin-top:8px" onclick="clearCart()">🗑 Cancelar Pedido</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════ DASHBOARD ═══════════ -->
+<main id="viewDash">
+  <p class="section-title">Painel do Dia</p>
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="dash-grid">
+    <div class="card">
+      <div class="card-title">Faturamento por hora (hoje)</div>
+      <canvas id="chartHora"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Top bebidas (hoje)</div>
+      <canvas id="chartBebidas"></canvas>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════ HISTÓRICO ═══════════ -->
+<main id="viewHist">
+  <p class="section-title">Histórico de Vendas</p>
+  <div class="filter-bar">
+    <input id="filterDate" type="date" onchange="renderHist()">
+    <input id="filterSearch" type="text" placeholder="Buscar bebida ou medida…" oninput="renderHist()">
+    <button class="btn-danger" onclick="clearAllSales()">🗑 Limpar tudo</button>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Data/Hora</th>
+          <th>Itens</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="histBody"></tbody>
+    </table>
+    <p class="empty" id="histEmpty" style="display:none">Nenhuma venda encontrada.</p>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ────────────────────────────────────────
+// STORAGE
+// ────────────────────────────────────────
+const DB = {
+  getSales: () => JSON.parse(localStorage.getItem('adega_sales') || '[]'),
+  setSales: v => localStorage.setItem('adega_sales', JSON.stringify(v)),
+  getCart:  () => JSON.parse(localStorage.getItem('adega_cart')  || '[]'),
+  setCart:  v => localStorage.setItem('adega_cart',  JSON.stringify(v)),
+};
+
+// ────────────────────────────────────────
+// NAV
+// ────────────────────────────────────────
+let charts = {};
+function showView(v) {
+  ['pdv','dash','hist'].forEach(id => {
+    document.getElementById('view' + id.charAt(0).toUpperCase() + id.slice(1)).classList.remove('visible');
+    document.getElementById('nav'  + id.charAt(0).toUpperCase() + id.slice(1)).classList.remove('active');
+  });
+  document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('visible');
+  document.getElementById('nav'  + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
+  if (v === 'dash') renderDash();
+  if (v === 'hist') renderHist();
+}
+
+// ────────────────────────────────────────
+// CART
+// ────────────────────────────────────────
+let cart = DB.getCart();
+
+function addItem() {
+  const nome   = document.getElementById('fNome').value.trim();
+  const medida = document.getElementById('fMedida').value;
+  const qtd    = parseInt(document.getElementById('fQtd').value) || 1;
+  const preco  = parseFloat(document.getElementById('fPreco').value);
+
+  if (!nome)        return toast('Informe o nome da bebida.', true);
+  if (!medida)      return toast('Selecione a medida.', true);
+  if (!preco || preco <= 0) return toast('Informe o preço.', true);
+
+  cart.push({ id: Date.now(), nome, medida, qtd, preco });
+  DB.setCart(cart);
+  renderCart();
+  updateDatalist();
+
+  // reset parcial
+  document.getElementById('fNome').value   = '';
+  document.getElementById('fMedida').value = '';
+  document.getElementById('fQtd').value    = 1;
+  document.getElementById('fPreco').value  = '';
+  document.getElementById('fNome').focus();
+  toast(`${qtd}x ${nome} adicionado!`);
+}
+
+function removeCartItem(id) {
+  cart = cart.filter(i => i.id !== id);
+  DB.setCart(cart);
+  renderCart();
+}
+
+function clearCart() {
+  if (!cart.length) return;
+  if (!confirm('Cancelar pedido?')) return;
+  cart = [];
+  DB.setCart(cart);
+  renderCart();
+}
+
+function renderCart() {
+  const el = document.getElementById('cartList');
+  const tot = document.getElementById('cartTotal');
+
+  if (!cart.length) {
+    el.innerHTML = '<p class="empty">Nenhum item adicionado.</p>';
+    tot.style.display = 'none';
+    return;
+  }
+
+  let total = 0;
+  el.innerHTML = cart.map(i => {
+    const sub = i.preco * i.qtd;
+    total += sub;
+    return `
+    <div class="cart-item">
+      <div>
+        <div class="cart-name">${i.nome}</div>
+        <div class="cart-detail">${i.medida} · ${i.qtd}× R$${fmt(i.preco)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="cart-price">R$${fmt(sub)}</span>
+        <button class="btn-icon" onclick="removeCartItem(${i.id})" title="Remover">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('totalVal').textContent = `R$ ${fmt(total)}`;
+  tot.style.display = 'block';
+}
+
+function closeOrder() {
+  if (!cart.length) return toast('Carrinho vazio.', true);
+  const total = cart.reduce((s, i) => s + i.preco * i.qtd, 0);
+  const sale = {
+    id: Date.now(),
+    ts: new Date().toISOString(),
+    items: [...cart],
+    total,
+    status: 'ok'
+  };
+  const sales = DB.getSales();
+  sales.unshift(sale);
+  DB.setSales(sales);
+  cart = [];
+  DB.setCart(cart);
+  renderCart();
+  toast(`Venda de R$ ${fmt(total)} fechada! ✅`);
+}
+
+// ────────────────────────────────────────
+// DASHBOARD
+// ────────────────────────────────────────
+function todaySales() {
+  const today = new Date().toDateString();
+  return DB.getSales().filter(s => s.status === 'ok' && new Date(s.ts).toDateString() === today);
+}
+
+function renderDash() {
+  const sales = todaySales();
+  const total = sales.reduce((s,v) => s + v.total, 0);
+  const qtdPedidos = sales.length;
+  const allItems = sales.flatMap(s => s.items);
+  const qtdItens = allItems.reduce((s,i) => s + i.qtd, 0);
+  const ticket = qtdPedidos ? total / qtdPedidos : 0;
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi"><div class="label">Faturamento Hoje</div><div class="value">R$${fmt(total)}</div></div>
+    <div class="kpi green"><div class="label">Pedidos Fechados</div><div class="value">${qtdPedidos}</div></div>
+    <div class="kpi"><div class="label">Itens Vendidos</div><div class="value">${qtdItens}</div></div>
+    <div class="kpi"><div class="label">Ticket Médio</div><div class="value">R$${fmt(ticket)}</div></div>
+  `;
+
+  // Chart: faturamento por hora
+  const horaMap = {};
+  for (let h = 6; h <= 23; h++) horaMap[h] = 0;
+  sales.forEach(s => { const h = new Date(s.ts).getHours(); horaMap[h] = (horaMap[h]||0) + s.total; });
+  const horas = Object.keys(horaMap);
+  const vals  = Object.values(horaMap);
+
+  if (charts.hora) charts.hora.destroy();
+  charts.hora = new Chart(document.getElementById('chartHora'), {
+    type: 'bar',
+    data: {
+      labels: horas.map(h => h + 'h'),
+      datasets: [{ data: vals, backgroundColor: '#c8973a55', borderColor: '#c8973a', borderWidth: 1.5, borderRadius: 4 }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a7a88', font: { size: 10 } }, grid: { color: '#2a2a30' } },
+        y: { ticks: { color: '#7a7a88', font: { size: 10 }, callback: v => 'R$'+v }, grid: { color: '#2a2a30' } }
+      }
+    }
+  });
+
+  // Chart: top bebidas
+  const bebiMap = {};
+  allItems.forEach(i => { bebiMap[i.nome] = (bebiMap[i.nome]||0) + i.qtd; });
+  const sorted = Object.entries(bebiMap).sort((a,b) => b[1]-a[1]).slice(0,7);
+
+  if (charts.bebi) charts.bebi.destroy();
+  charts.bebi = new Chart(document.getElementById('chartBebidas'), {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(e => e[0]),
+      datasets: [{ data: sorted.map(e => e[1]),
+        backgroundColor: ['#c8973a','#52c07a','#e05252','#5a9ee8','#e8a85a','#a05ae8','#5ae8e0'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      plugins: { legend: { position: 'right', labels: { color: '#e8e8ec', font: { size: 11 }, boxWidth: 12, padding: 8 } } },
+      cutout: '60%'
+    }
+  });
+}
+
+// ────────────────────────────────────────
+// HISTÓRICO
+// ────────────────────────────────────────
+function renderHist() {
+  const dateF  = document.getElementById('filterDate').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+  let sales = DB.getSales();
+
+  if (dateF)   sales = sales.filter(s => s.ts.startsWith(dateF));
+  if (search)  sales = sales.filter(s =>
+    s.items.some(i => i.nome.toLowerCase().includes(search) || i.medida.toLowerCase().includes(search))
+  );
+
+  const tbody = document.getElementById('histBody');
+  const empty = document.getElementById('histEmpty');
+
+  if (!sales.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = sales.map(s => {
+    const dt = new Date(s.ts);
+    const dtStr = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    const itStr = s.items.map(i => `${i.qtd}× ${i.nome} (${i.medida})`).join(', ');
+    const badge = s.status === 'ok'
+      ? '<span class="badge ok">OK</span>'
+      : '<span class="badge rev">Estornado</span>';
+    return `
+    <tr>
+      <td style="white-space:nowrap;color:var(--muted);font-size:12px">${dtStr}</td>
+      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itStr}">${itStr}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--accent2);font-weight:600">R$${fmt(s.total)}</td>
+      <td>${badge}</td>
+      <td style="white-space:nowrap">
+        ${s.status === 'ok' ? `<button class="btn-icon" title="Estornar" onclick="reverseSale(${s.id})">↩</button>` : ''}
+        <button class="btn-icon" title="Excluir" onclick="deleteSale(${s.id})" style="color:var(--red)">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function reverseSale(id) {
+  const senha = prompt('Acesso restrito. Digite a senha do dono para ESTORNAR a venda:');
+  if (senha !== '1234') {
+    toast('Senha incorreta. Ação negada.', true);
+    return;
+  }
+  
+  if (!confirm('Tem certeza que deseja estornar esta venda?')) return;
+  
+  const sales = DB.getSales().map(s => s.id === id ? {...s, status:'rev'} : s);
+  DB.setSales(sales);
+  renderHist();
+  toast('Venda estornada.');
+}
+
+function deleteSale(id) {
+  const senha = prompt('Acesso restrito. Digite a senha do dono para EXCLUIR a venda:');
+  if (senha !== '1234') {
+    toast('Senha incorreta. Ação negada.', true);
+    return;
+  }
+
+  if (!confirm('Excluir permanentemente?')) return;
+  DB.setSales(DB.getSales().filter(s => s.id !== id));
+  renderHist();
+  toast('Venda excluída.');
+}
+
+function clearAllSales() {
+  if (!confirm('Apagar TODO o histórico? Essa ação não pode ser desfeita.')) return;
+  
+  // VERIFICAÇÃO DE SENHA ADICIONADA AQUI
+  const senha = prompt('Acesso restrito. Digite a senha do dono para apagar o histórico:');
+  
+  if (senha !== '1234') { // A SENHA PODE SER ALTERADA AQUI
+    toast('Senha incorreta. Ação negada.', true);
+    return;
+  }
+  
+  DB.setSales([]);
+  renderHist();
+  toast('Histórico limpo.');
+}
+
+// ────────────────────────────────────────
+// UTILS
+// ────────────────────────────────────────
+function fmt(n) { return Number(n).toFixed(2).replace('.', ','); }
+
+let toastTimer;
+function toast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2400);
+}
+
+function updateDatalist() {
+  const sales = DB.getSales();
+  const names = [...new Set(sales.flatMap(s => s.items.map(i => i.nome)))].sort();
+  document.getElementById('dl-bebidas').innerHTML = names.map(n => `<option value="${n}">`).join('');
+}
+
+// ────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────
+renderCart();
+updateDatalist();
+document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
+
+// Enter no preço fecha o item
+document.getElementById('fPreco').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+</script>
+</body>
+</html>
