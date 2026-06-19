@@ -36,9 +36,10 @@
     position: sticky; top: 0; z-index: 50;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 8px;
+    display: none; align-items: center; gap: 8px; /* Oculto por padrão */
     padding: 0 20px; height: 52px;
   }
+  body.logged-in nav { display: flex; }
   nav .logo {
     font-weight: 700; font-size: 16px; color: var(--accent);
     letter-spacing: .03em; margin-right: auto;
@@ -57,6 +58,42 @@
   /* ── Layout ── */
   main { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
   main.visible { display: block; }
+
+  /* ── Login ── */
+  .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 32px; width: 100%; max-width: 400px;
+  }
+  .login-header { text-align: center; margin-bottom: 24px; }
+  .login-header .icon { font-size: 32px; margin-bottom: 8px; }
+  .login-header h1 { font-size: 22px; color: var(--accent); margin-bottom: 4px; font-weight: 700; }
+  .login-header p { font-size: 13px; color: var(--muted); }
+
+  .role-toggle { display: flex; gap: 8px; margin-bottom: 24px; }
+  .role-toggle button {
+    flex: 1; padding: 12px; background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted); cursor: pointer; font-weight: 600;
+    transition: all .15s; font-size: 14px;
+  }
+  .role-toggle button.active { background: var(--pill-bg); border-color: var(--text); color: var(--text); }
+  .role-toggle button:hover { background: var(--pill-bg); }
+
+  .login-form .field { margin-bottom: 16px; }
+  .btn-login {
+    width: 100%; padding: 12px; background: #1a1a20; color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; font-weight: 600; cursor: pointer; transition: all .15s;
+    font-size: 14px; margin-top: 8px; font-family: inherit;
+  }
+  .btn-login:hover { background: #24242c; border-color: var(--accent); }
+
+  .demo-creds { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px; }
+  .demo-creds-title { text-align: center; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px; }
+  .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .demo-card { background: #24242c; border-radius: 8px; padding: 14px; font-size: 12px; color: var(--muted); }
+  .demo-card strong { color: var(--accent2); display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; }
+  .demo-card span { color: var(--text); font-weight: 500; }
+
 
   /* ── Cards ── */
   .card {
@@ -197,10 +234,57 @@
   <button id="navPDV" class="active" onclick="showView('pdv')">⚡ Caixa</button>
   <button id="navDash" onclick="showView('dash')">📊 Painel</button>
   <button id="navHist" onclick="showView('hist')">🗂 Histórico</button>
+  <button onclick="logout()" style="margin-left: auto; border-color: var(--red); color: var(--red);">Sair 🚪</button>
 </nav>
 
+<!-- ═══════════ LOGIN ═══════════ -->
+<main id="viewLogin" class="visible">
+  <div class="login-wrap">
+    <div class="login-box">
+      <div class="login-header">
+        <div class="icon">🍷</div>
+        <h1>Adega PDV</h1>
+        <p>Sistema compartilhado de vendas</p>
+      </div>
+
+      <div class="role-toggle">
+        <button id="btnRoleDono" class="active" onclick="selectRole('dono')">👑 Dono</button>
+        <button id="btnRoleCaixa" onclick="selectRole('caixa')">👱 Operador</button>
+      </div>
+
+      <div class="login-form">
+        <div class="field">
+          <label>USUÁRIO</label>
+          <input id="lUser" type="text" placeholder="seu usuário" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>SENHA</label>
+          <input id="lPass" type="password" placeholder="••••••••">
+        </div>
+        <button class="btn-login" onclick="doLogin()">Entrar</button>
+      </div>
+
+      <div class="demo-creds">
+        <div class="demo-creds-title">CREDENCIAIS DE DEMONSTRAÇÃO</div>
+        <div class="demo-grid">
+          <div class="demo-card">
+            <strong>👑 Dono</strong>
+            usuário: <span>dono</span><br>
+            senha: <span>1234</span>
+          </div>
+          <div class="demo-card" style="color: #5a9ee8;">
+            <strong style="color: #5a9ee8;">👱 Operador</strong>
+            usuário: <span style="color: var(--text);">caixa</span><br>
+            senha: <span style="color: var(--text);">0000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
 <!-- ═══════════ PDV ═══════════ -->
-<main id="viewPDV" class="visible">
+<main id="viewPDV">
   <p class="section-title">Frente de Caixa</p>
   <div class="pdv-layout">
     <!-- Formulário -->
@@ -281,7 +365,7 @@
   <div class="filter-bar">
     <input id="filterDate" type="date" onchange="renderHist()">
     <input id="filterSearch" type="text" placeholder="Buscar bebida ou medida…" oninput="renderHist()">
-    <button class="btn-danger" onclick="clearAllSales()">🗑 Limpar tudo</button>
+    <button id="btnLimparTudo" class="btn-danger" onclick="clearAllSales()">🗑 Limpar tudo</button>
   </div>
   <div class="card">
     <table>
@@ -311,19 +395,95 @@ const DB = {
   setSales: v => localStorage.setItem('adega_sales', JSON.stringify(v)),
   getCart:  () => JSON.parse(localStorage.getItem('adega_cart')  || '[]'),
   setCart:  v => localStorage.setItem('adega_cart',  JSON.stringify(v)),
+  getUser:  () => JSON.parse(localStorage.getItem('adega_user')  || 'null'),
+  setUser:  v => localStorage.setItem('adega_user',  JSON.stringify(v)),
 };
+
+// ────────────────────────────────────────
+// LOGIN & AUTH
+// ────────────────────────────────────────
+let currentUser = DB.getUser();
+let selectedRole = 'dono';
+
+function selectRole(role) {
+  selectedRole = role;
+  document.getElementById('btnRoleDono').classList.remove('active');
+  document.getElementById('btnRoleCaixa').classList.remove('active');
+  if (role === 'dono') {
+    document.getElementById('btnRoleDono').classList.add('active');
+    document.getElementById('lUser').value = 'dono';
+  } else {
+    document.getElementById('btnRoleCaixa').classList.add('active');
+    document.getElementById('lUser').value = 'caixa';
+  }
+}
+
+function doLogin() {
+  const user = document.getElementById('lUser').value.trim().toLowerCase();
+  const pass = document.getElementById('lPass').value.trim();
+
+  if (user === 'dono' && pass === '1234') {
+    finishLogin({ role: 'dono', name: 'Dono' });
+  } else if (user === 'caixa' && pass === '0000') {
+    finishLogin({ role: 'caixa', name: 'Operador' });
+  } else {
+    toast('Usuário ou senha incorretos.', true);
+  }
+}
+
+function finishLogin(userData) {
+  currentUser = userData;
+  DB.setUser(userData);
+  document.body.classList.add('logged-in');
+  applyPermissions();
+  showView('pdv');
+  toast(`Bem-vindo, ${userData.name}!`);
+  document.getElementById('lPass').value = ''; // Limpa a senha
+}
+
+function logout() {
+  currentUser = null;
+  DB.setUser(null);
+  document.body.classList.remove('logged-in');
+  showView('login');
+}
+
+function applyPermissions() {
+  const isCaixa = currentUser?.role === 'caixa';
+  // Ocultar botões que alteram o histórico se for operador
+  const btnClearAll = document.getElementById('btnLimparTudo');
+  if (btnClearAll) btnClearAll.style.display = isCaixa ? 'none' : 'inline-block';
+}
+
+function checkAuth() {
+  if (currentUser) {
+    document.body.classList.add('logged-in');
+    applyPermissions();
+    showView('pdv');
+  } else {
+    document.body.classList.remove('logged-in');
+    showView('login');
+  }
+}
 
 // ────────────────────────────────────────
 // NAV
 // ────────────────────────────────────────
 let charts = {};
 function showView(v) {
-  ['pdv','dash','hist'].forEach(id => {
-    document.getElementById('view' + id.charAt(0).toUpperCase() + id.slice(1)).classList.remove('visible');
-    document.getElementById('nav'  + id.charAt(0).toUpperCase() + id.slice(1)).classList.remove('active');
+  ['login','pdv','dash','hist'].forEach(id => {
+    const el = document.getElementById('view' + id.charAt(0).toUpperCase() + id.slice(1));
+    if (el) el.classList.remove('visible');
+    const navBtn = document.getElementById('nav' + id.charAt(0).toUpperCase() + id.slice(1));
+    if (navBtn) navBtn.classList.remove('active');
   });
-  document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('visible');
-  document.getElementById('nav'  + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
+  
+  const targetView = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
+  if (targetView) targetView.classList.add('visible');
+  
+  const targetNav = document.getElementById('nav'  + v.charAt(0).toUpperCase() + v.slice(1));
+  if (targetNav) targetNav.classList.add('active');
+  
   if (v === 'dash') renderDash();
   if (v === 'hist') renderHist();
 }
@@ -526,14 +686,16 @@ function renderHist() {
       <td style="font-family:'JetBrains Mono',monospace;color:var(--accent2);font-weight:600">R$${fmt(s.total)}</td>
       <td>${badge}</td>
       <td style="white-space:nowrap">
-        ${s.status === 'ok' ? `<button class="btn-icon" title="Estornar" onclick="reverseSale(${s.id})">↩</button>` : ''}
-        <button class="btn-icon" title="Excluir" onclick="deleteSale(${s.id})" style="color:var(--red)">🗑</button>
+        ${(s.status === 'ok' && currentUser?.role === 'dono') ? `<button class="btn-icon" title="Estornar" onclick="reverseSale(${s.id})">↩</button>` : ''}
+        ${currentUser?.role === 'dono' ? `<button class="btn-icon" title="Excluir" onclick="deleteSale(${s.id})" style="color:var(--red)">🗑</button>` : ''}
       </td>
     </tr>`;
   }).join('');
 }
 
 function reverseSale(id) {
+  if (currentUser?.role !== 'dono') return toast('Permissão negada.', true);
+
   const senha = prompt('Acesso restrito. Digite a senha do dono para ESTORNAR a venda:');
   if (senha !== '1234') {
     toast('Senha incorreta. Ação negada.', true);
@@ -549,6 +711,8 @@ function reverseSale(id) {
 }
 
 function deleteSale(id) {
+  if (currentUser?.role !== 'dono') return toast('Permissão negada.', true);
+
   const senha = prompt('Acesso restrito. Digite a senha do dono para EXCLUIR a venda:');
   if (senha !== '1234') {
     toast('Senha incorreta. Ação negada.', true);
@@ -562,6 +726,8 @@ function deleteSale(id) {
 }
 
 function clearAllSales() {
+  if (currentUser?.role !== 'dono') return toast('Permissão negada.', true);
+
   if (!confirm('Apagar TODO o histórico? Essa ação não pode ser desfeita.')) return;
   
   // VERIFICAÇÃO DE SENHA ADICIONADA AQUI
@@ -606,6 +772,11 @@ document.getElementById('filterDate').value = new Date().toISOString().split('T'
 
 // Enter no preço fecha o item
 document.getElementById('fPreco').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+
+// Enter no login loga
+document.getElementById('lPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+checkAuth();
 </script>
 </body>
 </html>
