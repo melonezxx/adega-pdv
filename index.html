@@ -115,8 +115,8 @@
   .kpi.green .value { color: var(--green); }
   .kpi.red   .value { color: var(--red); }
 
-  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 700px) { .dash-grid { grid-template-columns: 1fr; } }
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
 
   /* ── Table ── */
   table { width: 100%; border-collapse: collapse; }
@@ -330,9 +330,15 @@
             <input id="fQtd" type="number" min="1" value="1" placeholder="1">
           </div>
         </div>
-        <div class="field">
-          <label>Preço unitário (R$)</label>
-          <input id="fPreco" type="number" min="0" step="0.01" placeholder="0,00">
+        <div class="row2">
+          <div class="field">
+            <label>Custo Unit. (R$)</label>
+            <input id="fCusto" type="number" min="0" step="0.01" placeholder="0,00">
+          </div>
+          <div class="field">
+            <label>Preço de Venda (R$)</label>
+            <input id="fPreco" type="number" min="0" step="0.01" placeholder="0,00">
+          </div>
         </div>
         <button class="btn-sell" onclick="addItem()">+ Adicionar ao Pedido</button>
       </div>
@@ -343,6 +349,15 @@
       <div class="card-title">Pedido aberto</div>
       <div id="cartList"><p class="empty">Nenhum item adicionado.</p></div>
       <div id="cartTotal" style="display:none">
+        <div class="field" style="margin-top: 14px; margin-bottom: 8px;">
+          <label>Forma de Pagamento</label>
+          <select id="fPagamento" style="width: 100%; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text);">
+            <option value="Pix">Pix</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Débito">Cartão de Débito</option>
+            <option value="Crédito">Cartão de Crédito</option>
+          </select>
+        </div>
         <div class="total-row"><span>Total</span><span class="total-val" id="totalVal">R$ 0,00</span></div>
         <button class="btn-close-order" onclick="closeOrder()">✅ Fechar Pedido</button>
         <button class="btn-danger" style="width:100%;margin-top:8px" onclick="clearCart()">🗑 Cancelar Pedido</button>
@@ -364,6 +379,10 @@
       <div class="card-title">Top bebidas (hoje)</div>
       <canvas id="chartBebidas"></canvas>
     </div>
+    <div class="card">
+      <div class="card-title">Faturamento por Pagamento</div>
+      <div id="pagamentoResumo" style="margin-top: 16px;"></div>
+    </div>
   </div>
 </main>
 
@@ -383,6 +402,7 @@
           <th>Data/Hora</th>
           <th>Itens</th>
           <th>Total</th>
+          <th>Pagamento</th>
           <th>Status</th>
           <th></th>
         </tr>
@@ -425,6 +445,7 @@ function selectRole(role) {
     document.getElementById('btnRoleCaixa').classList.add('active');
     document.getElementById('lUser').value = 'caixa';
   }
+  document.getElementById('lPass').focus();
 }
 
 function doLogin() {
@@ -507,12 +528,13 @@ function addItem() {
   const medida = document.getElementById('fMedida').value;
   const qtd    = parseInt(document.getElementById('fQtd').value) || 1;
   const preco  = parseFloat(document.getElementById('fPreco').value);
+  const custo  = parseFloat(document.getElementById('fCusto').value) || 0;
 
   if (!nome)        return toast('Informe o nome da bebida.', true);
   if (!medida)      return toast('Selecione a medida.', true);
   if (!preco || preco <= 0) return toast('Informe o preço.', true);
 
-  cart.push({ id: Date.now(), nome, medida, qtd, preco });
+  cart.push({ id: Date.now(), nome, medida, qtd, preco, custo });
   DB.setCart(cart);
   renderCart();
   updateDatalist();
@@ -521,6 +543,7 @@ function addItem() {
   document.getElementById('fNome').value   = '';
   document.getElementById('fMedida').value = '';
   document.getElementById('fQtd').value    = 1;
+  document.getElementById('fCusto').value  = '';
   document.getElementById('fPreco').value  = '';
   document.getElementById('fNome').focus();
   toast(`${qtd}x ${nome} adicionado!`);
@@ -574,11 +597,16 @@ function renderCart() {
 function closeOrder() {
   if (!cart.length) return toast('Carrinho vazio.', true);
   const total = cart.reduce((s, i) => s + i.preco * i.qtd, 0);
+  const custoTotal = cart.reduce((s, i) => s + (i.custo || 0) * i.qtd, 0);
+  const pagamento = document.getElementById('fPagamento').value;
+  
   const sale = {
     id: Date.now(),
     ts: new Date().toISOString(),
     items: [...cart],
     total,
+    custoTotal,
+    pagamento,
     status: 'ok'
   };
   const sales = DB.getSales();
@@ -601,17 +629,44 @@ function todaySales() {
 function renderDash() {
   const sales = todaySales();
   const total = sales.reduce((s,v) => s + v.total, 0);
+  const custoTotal = sales.reduce((s,v) => s + (v.custoTotal || 0), 0);
+  const lucro = total - custoTotal;
   const qtdPedidos = sales.length;
   const allItems = sales.flatMap(s => s.items);
   const qtdItens = allItems.reduce((s,i) => s + i.qtd, 0);
   const ticket = qtdPedidos ? total / qtdPedidos : 0;
 
-  document.getElementById('kpiGrid').innerHTML = `
-    <div class="kpi"><div class="label">Faturamento Hoje</div><div class="value">R$${fmt(total)}</div></div>
+  let kpiHtml = `
+    <div class="kpi"><div class="label">Faturamento Hoje</div><div class="value">R$ ${fmt(total)}</div></div>
     <div class="kpi green"><div class="label">Pedidos Fechados</div><div class="value">${qtdPedidos}</div></div>
     <div class="kpi"><div class="label">Itens Vendidos</div><div class="value">${qtdItens}</div></div>
-    <div class="kpi"><div class="label">Ticket Médio</div><div class="value">R$${fmt(ticket)}</div></div>
+    <div class="kpi"><div class="label">Ticket Médio</div><div class="value">R$ ${fmt(ticket)}</div></div>
   `;
+
+  if (currentUser?.role === 'dono') {
+    kpiHtml += `<div class="kpi"><div class="label">Lucro Líquido</div><div class="value" style="color:var(--green)">R$ ${fmt(lucro)}</div></div>`;
+  }
+
+  document.getElementById('kpiGrid').innerHTML = kpiHtml;
+
+  // KPIs de Pagamento
+  const pagMap = { 'Pix': 0, 'Dinheiro': 0, 'Débito': 0, 'Crédito': 0 };
+  sales.forEach(s => { 
+    if(s.pagamento && pagMap[s.pagamento] !== undefined) {
+      pagMap[s.pagamento] += s.total;
+    } else if(s.pagamento) {
+      pagMap[s.pagamento] = (pagMap[s.pagamento] || 0) + s.total;
+    }
+  });
+
+  const pagHtml = Object.entries(pagMap).filter(([k,v]) => v > 0).map(([k,v]) => `
+    <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+      <span style="color:var(--muted)">${k}</span>
+      <span style="font-weight:600; color:var(--accent2)">R$ ${fmt(v)}</span>
+    </div>
+  `).join('') || '<p class="empty" style="padding:0; margin-top:8px;">Sem vendas</p>';
+
+  document.getElementById('pagamentoResumo').innerHTML = pagHtml;
 
   // Chart: faturamento por hora
   const horaMap = {};
@@ -620,7 +675,7 @@ function renderDash() {
   const horas = Object.keys(horaMap);
   const vals  = Object.values(horaMap);
 
-  if (charts.hora) charts.hora.destroy();
+  if (charts.hora instanceof Chart) charts.hora.destroy();
   charts.hora = new Chart(document.getElementById('chartHora'), {
     type: 'bar',
     data: {
@@ -641,7 +696,7 @@ function renderDash() {
   allItems.forEach(i => { bebiMap[i.nome] = (bebiMap[i.nome]||0) + i.qtd; });
   const sorted = Object.entries(bebiMap).sort((a,b) => b[1]-a[1]).slice(0,7);
 
-  if (charts.bebi) charts.bebi.destroy();
+  if (charts.bebi instanceof Chart) charts.bebi.destroy();
   charts.bebi = new Chart(document.getElementById('chartBebidas'), {
     type: 'doughnut',
     data: {
@@ -691,8 +746,9 @@ function renderHist() {
     return `
     <tr>
       <td style="white-space:nowrap;color:var(--muted);font-size:12px">${dtStr}</td>
-      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itStr}">${itStr}</td>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itStr}">${itStr}</td>
       <td style="font-family:'JetBrains Mono',monospace;color:var(--accent2);font-weight:600">R$${fmt(s.total)}</td>
+      <td style="color:var(--text);font-size:12px">${s.pagamento || '-'}</td>
       <td>${badge}</td>
       <td style="white-space:nowrap">
         ${(s.status === 'ok' && currentUser?.role === 'dono') ? `<button class="btn-icon" title="Estornar" onclick="reverseSale(${s.id})">↩</button>` : ''}
@@ -739,10 +795,9 @@ function clearAllSales() {
 
   if (!confirm('Apagar TODO o histórico? Essa ação não pode ser desfeita.')) return;
   
-  // VERIFICAÇÃO DE SENHA ADICIONADA AQUI
   const senha = prompt('Acesso restrito. Digite a senha do dono para apagar o histórico:');
   
-  if (senha !== '1234') { // A SENHA PODE SER ALTERADA AQUI
+  if (senha !== '1234') { 
     toast('Senha incorreta. Ação negada.', true);
     return;
   }
@@ -769,26 +824,31 @@ function exportExcel() {
       data.push({
         'Data e Hora': dtStr,
         'Status': status,
+        'Pagamento': s.pagamento || '-',
         'Bebida / Produto': i.nome,
         'Medida': i.medida,
         'Quantidade': i.qtd,
+        'Custo Unitário (R$)': Number(i.custo || 0),
         'Preço Unitário (R$)': Number(i.preco),
-        'Subtotal (R$)': Number(i.preco * i.qtd)
+        'Subtotal (R$)': Number(i.preco * i.qtd),
+        'Lucro (R$)': Number((i.preco - (i.custo || 0)) * i.qtd)
       });
     });
   });
 
   const ws = XLSX.utils.json_to_sheet(data);
   
-  // Organizando a largura das colunas
   ws['!cols'] = [
     { wch: 18 }, // Data e Hora
     { wch: 12 }, // Status
+    { wch: 15 }, // Pagamento
     { wch: 30 }, // Produto
     { wch: 15 }, // Medida
     { wch: 12 }, // Quantidade
+    { wch: 20 }, // Custo Unit
     { wch: 20 }, // Preco Unit
-    { wch: 15 }  // Subtotal
+    { wch: 15 }, // Subtotal
+    { wch: 15 }  // Lucro
   ];
 
   const wb = XLSX.utils.book_new();
@@ -800,7 +860,9 @@ function exportExcel() {
 // ────────────────────────────────────────
 // UTILS
 // ────────────────────────────────────────
-function fmt(n) { return Number(n).toFixed(2).replace('.', ','); }
+function fmt(n) { 
+  return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 let toastTimer;
 function toast(msg, err = false) {
@@ -824,10 +886,7 @@ renderCart();
 updateDatalist();
 document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
 
-// Enter no preço fecha o item
 document.getElementById('fPreco').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
-
-// Enter no login loga
 document.getElementById('lPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 checkAuth();
